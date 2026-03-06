@@ -8,6 +8,15 @@ A small utility for a machine shop to decide the lunch plan by day.
 - **Friday:** everyone goes out together to one restaurant
 - **Other days:** no group rule
 
+## GitHub Pages (static HTML)
+
+A GitHub Pages-ready version of the app is in `docs/index.html`.
+
+1. Push this repo to GitHub.
+2. In **Settings → Pages**, choose **Deploy from a branch**.
+3. Select your default branch and `/docs` as the folder.
+4. Save, then open the published URL GitHub provides.
+
 ## Website (recommended)
 
 ```bash
