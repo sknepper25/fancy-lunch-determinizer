@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fancy Lunch Determinizer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --panel: #f8fafc;
+      --text: #111827;
+      --muted: #4b5563;
+      --accent: #2563eb;
+      --error: #b00020;
+      --border: #d1d5db;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827;
+        --panel: #1f2937;
+        --text: #f9fafb;
+        --muted: #cbd5e1;
+        --accent: #60a5fa;
+        --error: #ff9ab1;
+        --border: #374151;
+      }
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem auto;
+      max-width: 760px;
+      line-height: 1.5;
+      padding: 0 1rem;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    h1 {
+      margin-bottom: 0.25rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      margin-top: 0;
+    }
+
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: end;
+      margin: 1rem 0 1.5rem;
+    }
+
+    label {
+      font-weight: 600;
+    }
+
+    input[type="date"] {
+      padding: 0.45rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button {
+      padding: 0.5rem 0.85rem;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      background: var(--panel);
+    }
+
+    .error {
+      color: var(--error);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Fancy Lunch Determinizer</h1>
+    <p class="hint">Pick a date to get a deterministic lunch plan.</p>
+
+    <form id="lunch-form">
+      <div>
+        <label for="date">Date</label><br />
+        <input id="date" name="date" type="date" required />
+      </div>
+      <button type="submit">Get lunch plan</button>
+    </form>
+
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <section id="decision" class="card" aria-live="polite" hidden>
+      <h2>Lunch Plan</h2>
+      <p><strong>Date:</strong> <span id="decision-date"></span></p>
+      <p><strong>Rule:</strong> <span id="decision-rule"></span></p>
+      <p><strong>Choice:</strong> <span id="decision-choice"></span></p>
+    </section>
+
+    <section>
+      <h2>Rules</h2>
+      <ul>
+        <li><strong>Thursday:</strong> company-provided lunch.</li>
+        <li><strong>Friday:</strong> everyone goes out together.</li>
+        <li><strong>Other days:</strong> individual choice.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const THURSDAY_OPTIONS = [
+      "Taco bar catering",
+      "BBQ brisket plates",
+      "Burgers & dogs grill-out",
+      "Build-your-own burrito bowls",
+      "Pizza + salad combo",
+      "Fried chicken and sides",
+      "Pulled pork sandwiches",
+      "Sandwich platter and chips",
+    ];
+
+    const FRIDAY_RESTAURANTS = [
+      "Iron Skillet Diner",
+      "Mesa Grill",
+      "Foundry Smokehouse",
+      "Rivertown Mexican Kitchen",
+      "Main Street Burgers",
+      "The Noodle Joint",
+      "Depot Pizza Co.",
+      "Sakura Hibachi",
+    ];
+
+    const dateInput = document.getElementById("date");
+    const form = document.getElementById("lunch-form");
+    const errorEl = document.getElementById("error");
+    const decisionSection = document.getElementById("decision");
+
+    const dayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" });
+
+    function parseDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+      }
+      const date = new Date(`${value}T00:00:00Z`);
+      if (Number.isNaN(date.valueOf())) {
+        return null;
+      }
+      return date;
+    }
+
+    async function stableIndex(key, length) {
+      const data = new TextEncoder().encode(key);
+      const digest = await crypto.subtle.digest("SHA-256", data);
+      const bytes = new Uint8Array(digest);
+      let value = 0n;
+      for (const b of bytes) {
+        value = (value << 8n) + BigInt(b);
+      }
+      return Number(value % BigInt(length));
+    }
+
+    async function decideLunch(dateText) {
+      const date = parseDate(dateText);
+      if (!date) {
+        throw new Error("Please enter a valid date in YYYY-MM-DD format.");
+      }
+
+      const weekday = date.getUTCDay(); // Sunday=0 ... Saturday=6
+      const dayName = dayFormatter.format(date);
+
+      if (weekday === 4) {
+        const index = await stableIndex(`THU-${dateText}`, THURSDAY_OPTIONS.length);
+        return {
+          dateText,
+          dayName,
+          decisionType: "Company lunch (delivery/catering or grill-out)",
+          choice: THURSDAY_OPTIONS[index],
+        };
+      }
+
+      if (weekday === 5) {
+        const index = await stableIndex(`FRI-${dateText}`, FRIDAY_RESTAURANTS.length);
+        return {
+          dateText,
+          dayName,
+          decisionType: "Shop crew restaurant outing",
+          choice: FRIDAY_RESTAURANTS[index],
+        };
+      }
+
+      return {
+        dateText,
+        dayName,
+        decisionType: "No special group lunch rule",
+        choice: "Pack your own lunch or choose individually",
+      };
+    }
+
+    function showError(message) {
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+      decisionSection.hidden = true;
+    }
+
+    function renderDecision(decision) {
+      errorEl.hidden = true;
+      document.getElementById("decision-date").textContent = `${decision.dateText} (${decision.dayName})`;
+      document.getElementById("decision-rule").textContent = decision.decisionType;
+      document.getElementById("decision-choice").textContent = decision.choice;
+      decisionSection.hidden = false;
+    }
+
+    const today = new Date();
+    const year = today.getUTCFullYear();
+    const month = String(today.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(today.getUTCDate()).padStart(2, "0");
+    dateInput.value = `${year}-${month}-${day}`;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const decision = await decideLunch(dateInput.value);
+        renderDecision(decision);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    form.requestSubmit();
+  </script>
+</body>
+</html>
