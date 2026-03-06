@@ -10,7 +10,7 @@ A small utility for a machine shop to decide the lunch plan by day.
 
 ## GitHub Pages (static HTML)
 
-A GitHub Pages-ready version of the app is in `docs/index.html`.
+A GitHub Pages-ready version of the app is in `docs/index.html`. You can also open this file directly in a browser without running a server.
 
 1. Push this repo to GitHub.
 2. In **Settings → Pages**, choose **Deploy from a branch**.
